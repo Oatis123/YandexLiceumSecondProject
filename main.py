@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 
 pygame.init()
 
@@ -10,10 +11,11 @@ WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
+FONT = pygame.font.Font(None, 74)
 
 # Инициализация экрана
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Платформер с боссом")
+pygame.display.set_caption("Процедурный Платформер с Боссом")
 
 # Игрок
 player = pygame.Rect(50, HEIGHT - 70, 50, 50)
@@ -23,80 +25,98 @@ gravity = 0.8
 player_velocity_y = 0
 jumping = False
 
-# Платформы для каждого уровня
-levels = [
-    [  # Уровень 1
-        pygame.Rect(50, HEIGHT - 50, 100, 20),
-        pygame.Rect(200, HEIGHT - 150, 100, 20),
-        pygame.Rect(400, HEIGHT - 250, 100, 20),
-        pygame.Rect(600, HEIGHT - 350, 100, 20),
-    ],
-    [  # Уровень 2
-        pygame.Rect(50, HEIGHT - 50, 100, 20),
-        pygame.Rect(150, HEIGHT - 100, 100, 20),
-        pygame.Rect(300, HEIGHT - 200, 100, 20),
-        pygame.Rect(500, HEIGHT - 300, 100, 20),
-        pygame.Rect(700, HEIGHT - 400, 100, 20),
-    ],
-    [  # Уровень 3
-        pygame.Rect(50, HEIGHT - 50, 100, 20),
-        pygame.Rect(100, HEIGHT - 100, 100, 20),
-        pygame.Rect(250, HEIGHT - 200, 100, 20),
-        pygame.Rect(400, HEIGHT - 300, 100, 20),
-        pygame.Rect(600, HEIGHT - 400, 100, 20),
-    ],
-    [  # Уровень 4 (Усложненный)
-        pygame.Rect(50, HEIGHT - 50, 100, 20),
-        pygame.Rect(200, HEIGHT - 150, 100, 20),
-        pygame.Rect(350, HEIGHT - 250, 100, 20),
-        pygame.Rect(500, HEIGHT - 350, 100, 20),
-        pygame.Rect(650, HEIGHT - 450, 100, 20),
-    ],
-    [  # Уровень 5 (Босс)
-        pygame.Rect(50, HEIGHT - 50, 100, 20),
-        pygame.Rect(200, HEIGHT - 150, 100, 20),
-        pygame.Rect(400, HEIGHT - 250, 100, 20),
-        pygame.Rect(600, HEIGHT - 350, 100, 20),
-        pygame.Rect(700, HEIGHT - 400, 100, 20),
-    ]
-]
-
-
-
-# Враг (Босс)
-boss = pygame.Rect(WIDTH - 150, HEIGHT - 70, 50, 50)
-
 # Переменные уровня
+levels = []
 level = 0
-max_level = len(levels)
+num_levels = 5
+
+def generate_level():
+    level = []
+    platform_width = random.randint(80, 150)
+    x = 50
+    y = HEIGHT - 50
+    level.append(pygame.Rect(x, y, platform_width, 20))
+
+    for _ in range(random.randint(5, 10)):
+        x += random.randint(100, 200)
+        y_change = random.choice([-1, 1]) * random.randint(30, 100)
+        y = max(min(y + y_change, HEIGHT - 50), 50)
+
+        platform_type = random.choice(["normal", "moving", "disappearing"])
+        platform_width = random.randint(80, 150)
+
+        if platform_type == "normal":
+            level.append(pygame.Rect(x, y, platform_width, 20))
+        elif platform_type == "moving":
+            level.append({"rect": pygame.Rect(x, y, platform_width, 20), "type": "moving", "direction": 1})
+        elif platform_type == "disappearing":
+            level.append({"rect": pygame.Rect(x, y, platform_width, 20), "type": "disappearing", "timer": random.randint(60, 120)})
+
+    # Добавление платформы, ведущей к финишу
+    finish_x = WIDTH - random.randint(100, 150)
+    finish_y = random.randint(50, HEIGHT - 150)
+    level.append(pygame.Rect(finish_x, finish_y, 100, 20))
+
+    return level
 
 def draw_platforms():
     for platform in levels[level]:
-        pygame.draw.rect(screen, GREEN, platform)
+        if isinstance(platform, dict):
+            if platform["type"] == "moving":
+                platform["rect"].x += platform["direction"] * 2
+                if platform["rect"].left <= 0 or platform["rect"].right >= WIDTH:
+                    platform["direction"] *= -1
+            elif platform["type"] == "disappearing":
+                platform["timer"] -= 1
+                if platform["timer"] <= 0:
+                    continue
+        pygame.draw.rect(screen, GREEN, platform["rect"] if isinstance(platform, dict) else platform)
 
 def reset_level():
-    global player, jumping, player_velocity_y, level
+    global player, jumping, player_velocity_y
     player.x, player.y = 50, HEIGHT - 70
     jumping = False
     player_velocity_y = 0
-    level = 0  # Возвращение на первый уровень
 
 def check_collisions():
     global jumping, player_velocity_y
     for platform in levels[level]:
-        if player.colliderect(platform):
+        rect = platform["rect"] if isinstance(platform, dict) else platform
+        if player.colliderect(rect):
             if player_velocity_y > 0:  # Падение
-                player.bottom = platform.top
+                player.bottom = rect.top
                 player_velocity_y = 0
                 jumping = False
             elif player_velocity_y < 0:  # Прыжок
-                player.top = platform.bottom
+                player.top = rect.bottom
                 player_velocity_y = 0
 
-    if player.colliderect(boss) and level == max_level - 1:
-        print("Вы победили босса!")
-        pygame.quit()
-        sys.exit()
+def show_menu():
+    global num_levels
+    menu = True
+    while menu:
+        screen.fill(WHITE)
+        text = FONT.render("Выберите количество уровней", True, BLUE)
+        screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 2 - 100))
+        for i in range(1, 6):
+            option = FONT.render(str(i), True, RED)
+            screen.blit(option, (WIDTH // 2 - 20, HEIGHT // 2 - 100 + i * 60))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in range(pygame.K_1, pygame.K_6):
+                    num_levels = event.key - pygame.K_0
+                    menu = False
+
+show_menu()
+
+# Генерация уровней
+for _ in range(num_levels):
+    levels.append(generate_level())
 
 clock = pygame.time.Clock()
 
@@ -116,19 +136,19 @@ while True:
         jumping = True
         player_velocity_y = -player_jump
 
-    # Предотвращение выхода за границы окна
     if player.left < 0:
         player.left = 0
     if player.right > WIDTH:
         player.right = WIDTH
+        if level < num_levels - 1:
+            level += 1
+            reset_level()
 
-    # Применение гравитации
     player_velocity_y += gravity
     player.y += player_velocity_y
 
     check_collisions()
 
-    # Проверка падения в пропасть
     if player.bottom > HEIGHT:
         print("Вы упали в пропасть!")
         reset_level()
@@ -137,12 +157,5 @@ while True:
     pygame.draw.rect(screen, BLUE, player)
     draw_platforms()
 
-    if level == max_level - 1:
-        pygame.draw.rect(screen, RED, boss)
-
     pygame.display.flip()
     clock.tick(FPS)
-
-    if player.right >= WIDTH and level < max_level - 1:
-        level += 1
-        reset_level()
