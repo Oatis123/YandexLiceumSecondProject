@@ -90,7 +90,7 @@ class Platform(pygame.sprite.Sprite):
         
         if self.platform_type == "disappearing" and self.should_disappear:
             self.disappear_timer += 1
-            if self.disappear_timer >= 60:  # 1 секунда
+            if self.disappear_timer >= 60:
                 self.kill()
 
 class Boss(pygame.sprite.Sprite):
@@ -139,6 +139,33 @@ def draw_text(text, font, color, x, y):
     text_rect = text_surface.get_rect(center=(x, y))
     screen.blit(text_surface, text_rect)
 
+def show_saved_results(username):
+    cursor.execute('''SELECT score FROM scores 
+                      WHERE user_id = (SELECT id FROM users WHERE username = ?)
+                      ORDER BY score DESC''', (username,))
+    results = cursor.fetchall()
+
+    while True:
+        screen.fill(WHITE)
+        draw_text("Сохранённые результаты", FONT, BLUE, WIDTH//2, 100)
+
+        y_offset = 200
+        for i, result in enumerate(results):
+            draw_text(f"{i+1}. {result[0]}", SMALL_FONT, BLUE, WIDTH//2, y_offset)
+            y_offset += 50
+
+        draw_text("Нажмите M для возврата в меню", SMALL_FONT, BLUE, WIDTH//2, HEIGHT - 100)
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_m:
+                    return
+
 def login_menu():
     username = ""
     password = ""
@@ -149,15 +176,12 @@ def login_menu():
         screen.fill(WHITE)
         draw_text("Вход/Регистрация", FONT, BLUE, WIDTH//2, 100)
         
-        # Поле логина
         pygame.draw.rect(screen, BLUE, (WIDTH//2-150, 200, 300, 50), 2)
         draw_text(username if username else "Логин", SMALL_FONT, BLUE, WIDTH//2, 225)
         
-        # Поле пароля
         pygame.draw.rect(screen, BLUE, (WIDTH//2-150, 300, 300, 50), 2)
         draw_text("*"*len(password) if password else "Пароль", SMALL_FONT, BLUE, WIDTH//2, 325)
         
-        # Сообщение об ошибке
         if error:
             draw_text(error, SMALL_FONT, RED, WIDTH//2, 400)
         
@@ -368,7 +392,7 @@ def final_screen(score):
     while True:
         screen.fill(WHITE)
         draw_text(f"Игра окончена! Счет: {score}", FONT, BLUE, WIDTH//2, HEIGHT//2 - 50)
-        draw_text("M - В меню", SMALL_FONT, BLUE, WIDTH//2, HEIGHT//2 + 50)
+        draw_text("M - Выбрать уровни снова", SMALL_FONT, BLUE, WIDTH//2, HEIGHT//2 + 50)
         draw_text("Q - Выход", SMALL_FONT, BLUE, WIDTH//2, HEIGHT//2 + 100)
         
         pygame.display.flip()
@@ -379,7 +403,34 @@ def final_screen(score):
                 sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m:
-                    return True
+                    return False
+                elif event.key == pygame.K_q:
+                    pygame.quit()
+                    sys.exit()
+
+def main_menu(username):
+    while True:
+        screen.fill(WHITE)
+        draw_text("Главное меню", FONT, BLUE, WIDTH//2, 100)
+        draw_text("1 - Начать игру", SMALL_FONT, BLUE, WIDTH//2, 200)
+        draw_text("2 - Просмотреть результаты", SMALL_FONT, BLUE, WIDTH//2, 250)
+        draw_text("Q - Выход", SMALL_FONT, BLUE, WIDTH//2, 300)
+        
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    while True:
+                        total_levels = level_select()
+                        score = game_loop(total_levels, username)
+                        if not final_screen(score):
+                            break
+                elif event.key == pygame.K_2:
+                    show_saved_results(username)
                 elif event.key == pygame.K_q:
                     pygame.quit()
                     sys.exit()
@@ -387,11 +438,7 @@ def final_screen(score):
 def main():
     while True:
         username = login_menu()
-        total_levels = level_select()
-        while True:
-            score = game_loop(total_levels, username)
-            if not final_screen(score):
-                break
+        main_menu(username)
 
 if __name__ == "__main__":
     main()
