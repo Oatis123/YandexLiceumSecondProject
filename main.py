@@ -6,7 +6,6 @@ from math import sin, cos, radians
 
 pygame.init()
 
-# Конфигурация игры
 WIDTH, HEIGHT = 1000, 800
 FPS = 60
 WHITE = (255, 255, 255)
@@ -24,7 +23,6 @@ SMALL_FONT = pygame.font.Font(None, 36)
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Платформер с Боссом")
 
-# База данных
 conn = sqlite3.connect('game.db')
 cursor = conn.cursor()
 cursor.execute('''CREATE TABLE IF NOT EXISTS users
